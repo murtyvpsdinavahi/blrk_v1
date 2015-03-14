@@ -1,6 +1,35 @@
-function DigitalEvents = parse_blrk_events(sRate)
+function DigitalEvents = parse_blrk_events(fname,sRate)    
 
-NEV = openNEV('read','nosave','nomat');
+if nargin==2
+    mrkFile = [fname(1:(end-4)) '.nev'];
+
+    if exist(mrkFile, 'file') ~= 2
+        warndlg2('No .nev (marker) file in the specified location. Select .nev file to load markers.');
+        fileExt = {'*.nev'};
+        [hdrfile,path] = uigetfile2(fileExt, 'Select .nev (marker) file');
+        if hdrfile(1) == 0
+           warndlg2('No Marker File Selected. Hence no events loaded. Events can be loaded later from menu item File/Import event info.');
+           disp('No marker file associated with the data file. Hence no parsed events.')
+           DigitalEvents=[];
+           return;
+        end    
+        mrkFile = [path hdrfile];
+    end
+else
+    fileExt = {'*.nev'};
+    [hdrfile,path] = uigetfile2(fileExt, 'Select .nev (marker) file');
+    if hdrfile(1) == 0
+       warndlg2('No Marker File Selected. Hence no events loaded.');
+       disp('No marker file associated with the data file. Hence no parsed events.')
+       DigitalEvents=[];
+       return;
+    end  
+    mrkFile = [path hdrfile];
+    sRate = evalin('base','EEG.srate');
+end
+
+disp('Loading marker file and parsing markers...');
+NEV = openNEV(mrkFile,'read','nosave','nomat','nomultinsp');
 
 digitalEvents = NEV.Data.SerialDigitalIO.UnparsedData;
 digitalPos = NEV.Data.SerialDigitalIO.TimeStamp;
@@ -36,33 +65,33 @@ digitalEvents=digitalEvents-1;
 
 ModDigiEventIndex=find(digitalEvents>32768);
 
-useSingleITC18Flag = 1;
-modifiedDigitalEvents = digitalEvents(digitalEvents>32768) - 32768;
-allCodesInDec = unique(modifiedDigitalEvents);
-disp(['Number of distinct codes: ' num2str(length(allCodesInDec))]);
-allCodesInStr = convertDecCodeToStr(allCodesInDec,useSingleITC18Flag);
-
 % All digital codes all start with a leading 1, which means that they are greater than hex2dec(8000) = 32768.
 DigitalEvents = [];
+
 for i=1:length(ModDigiEventIndex)
-DigitalEvents(i).code = digitalEvents(ModDigiEventIndex(i)) - 32768;
-DigitalEvents(i).type = (convertDecCodeToStr(digitalEvents(ModDigiEventIndex(i)) - 32768));
+DigiCode = digitalEvents(ModDigiEventIndex(i)) - 32768;
+BinCode=dec2bin(DigiCode,16);
+DigitalEvents(i).code = DigiCode;
+DigitalEvents(i).type = [char(bin2dec(BinCode(2:8))) char(bin2dec(BinCode(9:15)))];
 DigitalEvents(i).value = (digitalEvents(ModDigiEventIndex(i)+1));
 DigitalEvents(i).time_sec = (digitalTimeStamps(ModDigiEventIndex(i)));
 DigitalEvents(i).latency = DigitalEvents(i).time_sec*sRate;
-% DigitalEvents(i).latencyBK = (digitalPos(ModDigiEventIndex(i)));
+allCodesInDec(i) = DigitalEvents(i).code;
 end
+
+
+uniqueCodesInDec = unique(allCodesInDec);
+uniqueCodesInStr = unique({DigitalEvents.type});
+disp(['Number of distinct codes: ' num2str(length(uniqueCodesInStr))]);
 
 clear identifiedDigitalCodes badDigitalCodes
 count=1; badCount=1;
-for i=1:length(allCodesInDec)
-    if ~digitalCodeDictionary(allCodesInStr(i,:))
-        disp(['Unidentified digital code: ' allCodesInStr(i,:) ', bin: ' dec2bin(allCodesInDec(i),16) ', dec: ' num2str(allCodesInDec(i)) ', occured ' num2str(length(find(modifiedDigitalEvents==allCodesInDec(i))))]);
-        badDigitalCodes(badCount) = allCodesInDec(i);
+
+for i=1:length(uniqueCodesInDec)
+    if ~digitalCodeDictionary_blrk(uniqueCodesInStr{1,i})
+        disp(['Unidentified digital code: ' uniqueCodesInStr(i,:) ', bin: ' dec2bin(uniqueCodesInDec(i),16) ', dec: ' num2str(uniqueCodesInDec(i)) ', occured ' num2str(length(find(allCodesInDec==uniqueCodesInDec(i))))]);
+        badDigitalCodes(badCount) = uniqueCodesInDec(i);
         badCount=badCount+1;
-    else
-        identifiedDigitalCodes(count) = allCodesInDec(i);
-        count=count+1;
     end
 end
 

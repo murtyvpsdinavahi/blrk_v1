@@ -49,7 +49,7 @@ com = '';
 EEG = [];
 
 if nargin < 2
-    fileExt = {'*.ns1';'*.ns2';'*.ns3';'*.ns4';'*.ns5';'*.ns6';'*.ns7';'*.ns8';'*.ns9'};
+    fileExt = {'*.ns1;*.ns2;*.ns3;*.ns4;*.ns5;*.ns6;*.ns7;*.ns8;*.ns9'};
     [hdrfile path] = uigetfile2(fileExt, 'Select .nsX file');
     if hdrfile(1) == 0, return; end
 
@@ -133,7 +133,7 @@ EEG.data = double(EEG.data);
 EEG.ref = 'common';
 
 % Extract codes
-EEG.event = parse_blrk_events(EEG.srate);
+EEG.event = parse_blrk_events(fname,EEG.srate);
 
 try
     EEG = eeg_checkset(EEG);

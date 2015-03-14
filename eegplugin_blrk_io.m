@@ -51,7 +51,8 @@ function vers = eegplugin_blrk_io(fig, trystrs, catchstrs)
     
     % find import data menu
     % ---------------------
-    menui = findobj(fig, 'tag', 'import data');
+    menuiData = findobj(fig, 'tag', 'import data');
+    menuiEvents = findobj(fig, 'tag', 'import event');
     
     % menu callbacks
     % --------------
@@ -66,14 +67,17 @@ function vers = eegplugin_blrk_io(fig, trystrs, catchstrs)
         comcnt1 = [ trystrs.no_check '[EEGTMP LASTCOM] = pop_loadblrk;'  catchstrs.new_non_empty ];
         comcnt2 = [ trystrs.no_check '[EEGTMP LASTCOM] = pop_loadblrk_eeg;'  catchstrs.new_non_empty ];
         comcnt3 = [ trystrs.no_check '[EEGTMP LASTCOM] = pop_loadblrk_analog;'  catchstrs.new_non_empty ];
+        comcnt4 = [ trystrs.no_check '[EEGTMP.event] = parse_blrk_events;'  catchstrs.new_non_empty ];
     else
         comcnt1 = [ trystrs.no_check '[EEG LASTCOM] = pop_loadblrk;'  catchstrs.new_non_empty ];
         comcnt2 = [ trystrs.no_check '[EEG LASTCOM] = pop_loadblrk_eeg;'  catchstrs.new_non_empty ];
         comcnt3 = [ trystrs.no_check '[EEG LASTCOM] = pop_loadblrk_analog;'  catchstrs.new_non_empty ];
+        comcnt4 = [ trystrs.no_check '[EEG.event] = parse_blrk_events;'  catchstrs.new_non_empty ];
     end;
                 
     % create menus
     % ------------
-    uimenu( menui, 'label', 'From BlackRock .nsX file',  'callback', comcnt1, 'separator', 'on' );
-    uimenu( menui, 'label', 'From BlackRock .nsX file, EEG data only',  'callback', comcnt2, 'separator', 'off' );
-    uimenu( menui, 'label', 'From BlackRock .nsX file, Analog data only',  'callback', comcnt3, 'separator', 'off' );
+    uimenu( menuiData, 'label', 'From BlackRock .nsX file',  'callback', comcnt1, 'separator', 'on' );
+    uimenu( menuiData, 'label', 'From BlackRock .nsX file, EEG data only',  'callback', comcnt2, 'separator', 'off' );
+    uimenu( menuiData, 'label', 'From BlackRock .nsX file, Analog data only',  'callback', comcnt3, 'separator', 'off' );
+    uimenu( menuiEvents, 'label', 'From BlackRock .nev file',  'callback', comcnt4, 'separator', 'on' );
