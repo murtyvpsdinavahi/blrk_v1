@@ -73,23 +73,23 @@ fname = [path hdrfile];
 
 % Header file
 disp('pop_loadblrk_analog(): opening file');
-openNSx(fname,'read','p:int16');
+NSx = openNSx(fname,'read','p:int16');
 
 % Common Infos
 try
     EEG = eeg_emptyset;
 catch
 end
-EEG.comments = ['Original file: ' NS3.MetaTags.Filename];
-EEG.srate = NS3.MetaTags.SamplingFreq;
+EEG.comments = ['Original file: ' NSx.MetaTags.Filename];
+EEG.srate = NSx.MetaTags.SamplingFreq;
 
 % Channel Infos
 if ~exist('chans', 'var')
-    chans = NS3.MetaTags.ChannelID(find(NS3.MetaTags.ChannelID>128));    
+    chans = NSx.MetaTags.ChannelID(find(NSx.MetaTags.ChannelID>128));    
 elseif isempty(chans)
-    chans = NS3.MetaTags.ChannelID(find(NS3.MetaTags.ChannelID>128)); 
+    chans = NSx.MetaTags.ChannelID(find(NSx.MetaTags.ChannelID>128)); 
 else
-    diffChan = setdiff(chans,NS3.MetaTags.ChannelID);
+    diffChan = setdiff(chans,NSx.MetaTags.ChannelID);
     if ~isempty(diffChan)
         error('chans out of available channel range');
     end
@@ -103,24 +103,41 @@ EEG.nbchan = length(chans);
 
 % Sample range
 if ~exist('srange', 'var') || isempty(srange)
-    srange = [ 0 NS3.MetaTags.DataPoints/EEG.srate];
-    EEG.pnts = NS3.MetaTags.DataPoints;
+    srange = [ 0 NSx.MetaTags.DataPoints/EEG.srate];
+    EEG.pnts = NSx.MetaTags.DataPoints;
 elseif length(srange) == 1
-    EEG.pnts = NS3.MetaTags.DataPoints - srange(1)*EEG.srate;
+    EEG.pnts = NSx.MetaTags.DataPoints - srange(1)*EEG.srate;
 else
     EEG.pnts = srange(2)*EEG.srate - srange(1)*EEG.srate;
 end
 
-if any(srange*EEG.srate > NS3.MetaTags.DataPoints)
+if any(srange*EEG.srate > NSx.MetaTags.DataPoints)
     error('srange out of available data range');
 end
 
 % Reading Channel locations and Data
 disp('pop_loadblrk_analog(): reading EEG data');
 for chan = 1:length(chans)
-    chanIndex = chan+(length(find(NS3.MetaTags.ChannelID<129)));
-    EEG.chanlocs(chan).labels = NS3.ElectrodesInfo(chanIndex).Label;
-    EEG.data(chan,:) = NS3.Data(chanIndex,(srange(1)*EEG.srate+1):srange(2)*EEG.srate);
+    chanIndex = chan+(length(find(NSx.MetaTags.ChannelID<129)));
+    EEG.chanlocs(chan).labels = NSx.ElectrodesInfo(chanIndex).Label;
+    EEG.data(chan,:) = NSx.Data(chanIndex,(srange(1)*EEG.srate+1):srange(2)*EEG.srate);
+    
+    % Scaling EEG.data
+    clear minDig minAnalog scaleMin maxDig maxAnalog scaleMax
+    minDig = NSx.ElectrodesInfo(chanIndex).MinDigiValue;
+    minAnalog = NSx.ElectrodesInfo(chanIndex).MinAnalogValue;
+    scaleMin = double(minDig/minAnalog);
+    maxDig = NSx.ElectrodesInfo(chanIndex).MinDigiValue;
+    maxAnalog = NSx.ElectrodesInfo(chanIndex).MinAnalogValue;
+    scaleMax = double(maxDig/maxAnalog);
+    
+    for q=1:size(EEG.data(chan,:),2)
+        if EEG.data(chan,q)<0
+            EEG.data(chan,q)=EEG.data(chan,q)/scaleMin;
+        else
+            EEG.data(chan,q)=EEG.data(chan,q)/scaleMax;
+        end
+    end
 end
 
 EEG.trials = 1;
@@ -133,7 +150,10 @@ EEG.data = double(EEG.data);
 EEG.ref = 'common';
 
 % Extract codes
-EEG.event = parse_blrk_events(fname,EEG.srate);
+% EEG.event = parse_blrk_events(fname,EEG.srate);
+[EEG.event,stimCombTable,dataLog] = getBlackrockEvents(EEG.srate);
+assignin('base','stimCombTable',stimCombTable);
+assignin('base','dataLog',dataLog);
 
 try
     EEG = eeg_checkset(EEG);
